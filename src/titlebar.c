@@ -33,12 +33,8 @@ xcb_gcontext_t graphics_context;
 
 void Xft_setup() {
     screen_nmbr = DefaultScreen(display);
-    //XVisualInfo xv; 
-    //xv.depth = 32;
-    //int result = 0;
     visual = DefaultVisual(display, screen_nmbr);
     colormap = ScreenOfDisplay(display, screen_nmbr)->cmap;
-    //visual = XGetVisualInfo(display, VisualDepthMask, &xv, &result)->visual;
 
     const char font_name[] = "Open Sans";
     XftFont* font  = XftFontOpenName(display, screen_nmbr, font_name);
@@ -67,8 +63,6 @@ void Xft_setup() {
         xcb_copy_area(connection, pixmap, titlebar, graphics_context, 0, 0, 0, 0, screen->width_in_pixels, height);
 }
 
-
-// TODO :  https://github.com/drscream/lemonbar-xft/blob/xft-port/lemonbar.c Xft font
 
 
 void generateGraphics(xcb_expose_event_t* exposeEvent) {
