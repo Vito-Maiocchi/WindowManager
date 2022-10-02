@@ -105,7 +105,7 @@ static xcb_keysym_t xcb_get_keysym(xcb_keycode_t keycode) {
 }
 
 static void handleMapRequest(xcb_map_request_event_t * event) {
-    xcb_map_window(connection, event->window);
+    xcb_map_window(connection, event->window); //das au nöd
     uint32_t vals[5];
     vals[0] = 0;
     vals[1] = titlebar_height;
@@ -116,7 +116,7 @@ static void handleMapRequest(xcb_map_request_event_t * event) {
         XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
         XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH, vals);
     xcb_flush(connection);
-    values[0] = XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_FOCUS_CHANGE;
+    values[0] = XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_FOCUS_CHANGE; // NONIG IN Xconnection
     xcb_change_window_attributes_checked(connection, event->window,
         XCB_CW_EVENT_MASK, values);
     setFocus(event->window);
@@ -233,7 +233,7 @@ int main(int argc, char * argv[]) {
     xcb_grab_key(connection, 1, screen->root, XCB_MOD_MASK_4, XCB_GRAB_ANY, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
     //xcb_grab_key(connection, 1, screen->root, XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT, XCB_GRAB_ANY, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
     //xcb_grab_key(connection, 1, screen->root, XCB_MOD_MASK_4 | XCB_MOD_MASK_CONTROL, XCB_GRAB_ANY, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
-    //xcb_grab_key(connection, 1, screen->root, XCB_MOD_MASK_4 | XCB_MOD_MASK_CONTROL | XCB_MOD_MASK_SHIFT, XCB_GRAB_ANY, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+    //xcb_grab_key(connection, 1, screen->root, XCB_MOD_MASK_4 | XCB_MOD_MASK_CONTROL | XCB_MOD_MASK_SHIFT , XCB_GRAB_ANY, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
     xcb_flush(connection);
 
     createTitlebar(connection, screen, titlebar_height, display);
