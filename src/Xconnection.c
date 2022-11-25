@@ -2,6 +2,10 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include "WindowManager.h"
+#include <xcb/xcb.h>
+#include <xcb/xcb_keysyms.h>
+#include <X11/Xft/Xft.h>
+#include <X11/Xlib-xcb.h>
 
 Display* display;
 xcb_connection_t* connection;
@@ -33,10 +37,9 @@ void eventListen() {
         } break;
         case XCB_MAP_REQUEST: {
             xcb_map_request_event_t* map_request_event = (xcb_map_request_event_t*) e;
-            values[0] = XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_FOCUS_CHANGE;
+            values[0] = XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_FOCUS_CHANGE | XCB_EVENT_MASK_PROPERTY_CHANGE;
             xcb_change_window_attributes_checked(connection, map_request_event->window, XCB_CW_EVENT_MASK, values);
             handleMapRequest(map_request_event->window);
-            xcb_map_window(connection, map_request_event->window);
             xcb_flush(connection);
         } break;
         case XCB_FOCUS_IN:
@@ -48,11 +51,17 @@ void eventListen() {
         case XCB_ENTER_NOTIFY:
             handleEnterNotify(((xcb_enter_notify_event_t*)e)->event);
         break;
+        case XCB_LEAVE_NOTIFY:
+            handleLeaveNotify(((xcb_leave_notify_event_t*)e)->event);
+        break;
         case XCB_DESTROY_NOTIFY:
             handleDestroyNotify(((xcb_destroy_notify_event_t*)e)->event);
         break;
         case XCB_EXPOSE:
             handleExpose();
+        break;
+        case XCB_PROPERTY_NOTIFY:
+            handlePropertyChange( ((xcb_property_notify_event_t*)e)->window );
         break;
     }
 }
@@ -98,7 +107,7 @@ Visual* visual;
 Colormap colormap;
 int titlebar_height;
 
-void titlebarInit(int height, char font_name[], char color_names[][8]) {
+void titlebarInit(int height, const char font_name[], const char color_names[][8]) {
     titlebar_height = height;
 
     titlebar = xcb_generate_id (connection);
@@ -134,7 +143,7 @@ void titlebarDrawRectangle(int color, int x, int y, int width, int height) {
     XftDrawRect(draw, &(colors[color]), x, y, width, height);
 }
 
-void titlebarDrawText(int color, int x, int y, char text[]) {
+void titlebarDrawText(int color, int x, int y, const char text[]) {
     XftDrawString8(draw, &(colors[color]), font, x, y, (unsigned char*)text, strlen(text));
 }
 
@@ -149,7 +158,7 @@ void clientKill(unsigned int client) {
     xcb_kill_client(connection, client);
 }
 
-void clientSpawn(char command[]) {
+void clientSpawn(const char command[]) {
         if (fork() == 0) {
         if (connection != NULL) {
             close(screen->root);
@@ -159,7 +168,6 @@ void clientSpawn(char command[]) {
             _exit(0);
         }
         system(command);
-        //execvp((char*)com[0], (char**)com);
         _exit(0);
     }
     wait(NULL);
@@ -187,4 +195,22 @@ void clientSetBorderColor(unsigned int client, unsigned int color) {
         xcb_change_window_attributes(connection, client, XCB_CW_BORDER_PIXEL, vals);
         xcb_flush(connection);
     }
+}
+
+void clientMap(unsigned int client) {
+    xcb_map_window(connection, client);
+}
+
+void clientUnMap(unsigned int client) {
+    xcb_unmap_window(connection, client);
+}
+
+char* clientGetTitle(unsigned int client) {
+   xcb_get_property_reply_t*  reply = xcb_get_property_reply(connection, xcb_get_property(connection, 0, client, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 0, 100), NULL); //100 char array
+   int len = xcb_get_property_value_length(reply);
+   char* text = (char*) malloc(len + 1);
+   char* property = (char*)xcb_get_property_value(reply);
+   for(int i = 0; i < len; i++) text[i] = property[i];
+   text[len] = '\0';
+   return text;
 }
