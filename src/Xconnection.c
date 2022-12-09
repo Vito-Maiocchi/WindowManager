@@ -7,7 +7,7 @@
 #include <X11/Xft/Xft.h>
 #include <X11/Xlib-xcb.h>
 
-Display* display;
+Display* xDisplay;
 xcb_connection_t* connection;
 xcb_screen_t* screen;
 uint32_t values[3];
@@ -67,8 +67,8 @@ void eventListen() {
 }
 
 bool connect() {
-    display = XOpenDisplay(0);
-    connection = XGetXCBConnection(display);
+    xDisplay = XOpenDisplay(0);
+    connection = XGetXCBConnection(xDisplay);
 
     if (xcb_connection_has_error(connection) > 0) return false;
     screen = xcb_setup_roots_iterator(xcb_get_setup(connection)).data;
@@ -116,13 +116,13 @@ void titlebarInit(int height, const char font_name[], const char color_names[][8
     xcb_create_window (connection, XCB_COPY_FROM_PARENT, titlebar, screen->root, 0, 0, screen_width, height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual, mask, values );
     xcb_map_window (connection, titlebar);
 
-    uint screen_nmbr = DefaultScreen(display);
-    visual = DefaultVisual(display, screen_nmbr);
-    colormap = ScreenOfDisplay(display, screen_nmbr)->cmap;
+    uint screen_nmbr = DefaultScreen(xDisplay);
+    visual = DefaultVisual(xDisplay, screen_nmbr);
+    colormap = ScreenOfDisplay(xDisplay, screen_nmbr)->cmap;
 
-    font  = XftFontOpenName(display, screen_nmbr, font_name);
+    font  = XftFontOpenName(xDisplay, screen_nmbr, font_name);
 
-    for(int i = 0; i < MAX_COLORS; i++) XftColorAllocName(display, visual, colormap, color_names[i], &(colors[i]));
+    for(int i = 0; i < MAX_COLORS; i++) XftColorAllocName(xDisplay, visual, colormap, color_names[i], &(colors[i]));
 
     graphics_context = xcb_generate_id (connection);
     uint32_t mask_gc       = XCB_GC_FOREGROUND | XCB_GC_GRAPHICS_EXPOSURES;
@@ -136,7 +136,7 @@ void titlebarInit(int height, const char font_name[], const char color_names[][8
 }
 
 void titlebarDrawStart() {
-    draw = XftDrawCreate(display, pixmap, visual, colormap);
+    draw = XftDrawCreate(xDisplay, pixmap, visual, colormap);
 }
 
 void titlebarDrawRectangle(int color, int x, int y, int width, int height) {

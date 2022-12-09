@@ -1,6 +1,7 @@
 #include "WindowManager.h"
 #include "Xconnection.h"
-#include "Client.h"
+//#include "Client.h"
+#include "DisplayManager.h"
 
 void draw() {
     titlebarDrawStart();
@@ -9,12 +10,13 @@ void draw() {
     titlebarDrawFinalize();
 }
 
-Display d;
+//Display d;
 
 int main() {
     if(!connect()) return -1;
 
-    d = Display(0, 0, screen_width, screen_height);
+    //d = Display(0, 0, screen_width, screen_height);
+    setDisplay(0,0,screen_width,screen_height);
 
     while (running) {
         eventListen();
