@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <xcb/xcb.h>
+#include <xcb/randr.h>
 #include <xcb/xcb_keysyms.h>
 #include <X11/Xft/Xft.h>
 #include <X11/Xlib-xcb.h>
@@ -10,18 +11,37 @@
 #include <stdexcept>
 #include <sstream>
 #include <iomanip>
+#include <vector>
 
 #include "X_Connection.h"
 
 static Display* xDisplay;
 static xcb_connection_t* connection;
-static xcb_screen_t* screen;
 
-int screen_width = -1;
-int screen_height = -1;
+struct Titlebar {
+    xcb_drawable_t drawable;
+    xcb_pixmap_t pixmap;
+    xcb_gcontext_t graphics_context;
+    XftFont* font;
+    XftDraw* draw;
+    Visual* visual;
+    Colormap colormap;
+
+    unsigned titlebar_height;
+    std::unordered_map<std::string, XftColor> colors;
+};
+
+struct Monitor {
+    int index;
+    xcb_screen_t* xcb_screen;
+    Titlebar titlebar;
+};
+
+static std::vector<Monitor> monitors;
 
 void checkIfValid(unsigned client) {
-    if ((client == 0) || (client == screen->root)) throw std::runtime_error("Invalid Client");
+    if (client == 0) throw std::runtime_error("Invalid Client");
+    for(Monitor monitor : monitors) if(monitor.xcb_screen->root == client) throw std::runtime_error("Invalid Client");
 }
 
 std::string getTitle(unsigned client) {
@@ -124,30 +144,67 @@ void eventListen() {
     }
 }
 
+int MONITOR_AMOUNT = 0;
+
 void connect() {
     xDisplay = XOpenDisplay(0);  //alles nöd nur ein einzige Monition
     connection = XGetXCBConnection(xDisplay);
-
     if (xcb_connection_has_error(connection) > 0) throw std::runtime_error("Connection Error");
-    screen = xcb_setup_roots_iterator(xcb_get_setup(connection)).data; //de main monition
+    
+    xcb_screen_iterator_t iter = xcb_setup_roots_iterator(xcb_get_setup(connection));
+    do {
+        Monitor m = {iter.index, iter.data, {}};
+        monitors.push_back(m);
+        xcb_screen_next(&iter);
+    } while (iter.rem > 0);
+
+    MONITOR_AMOUNT = monitors.size();
+
+    std::vector<xcb_randr_monitor_info_t*> monitor_infos;
+
+    for (Monitor monitor : monitors) {
+        std::cout << "Screen " << monitor.index << ";" << std::endl;
+
+        xcb_randr_monitor_info_iterator_t monitorIterator = xcb_randr_get_monitors_monitors_iterator(xcb_randr_get_monitors_reply(connection, xcb_randr_get_monitors(connection, monitor.xcb_screen->root, 1), NULL));
+        monitor_infos.push_back(monitorIterator.data);
+        while (monitorIterator.rem > 0) {
+            xcb_randr_monitor_info_next(&monitorIterator);
+            if(monitorIterator.data->width != 0 && monitorIterator.data->height != 0 )monitor_infos.push_back(monitorIterator.data);
+        }
+    }
+
+    std::cout << "MONITOR AMOUNT " << monitor_infos.size() << std::endl;
+    for(auto m : monitor_infos) {
+        std::cout << "x: " << m->x << "; y: " << m->y << "; width: " << m->width << "; height: " << m->height << std::endl;
+    }
+    
 
     uint32_t values[1];
     values[0] = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT
         | XCB_EVENT_MASK_STRUCTURE_NOTIFY
         | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
         | XCB_EVENT_MASK_PROPERTY_CHANGE;
-    xcb_change_window_attributes_checked(connection, screen->root,
-        XCB_CW_EVENT_MASK, values);
-    xcb_ungrab_key(connection, XCB_GRAB_ANY, screen->root, XCB_MOD_MASK_ANY);
-    xcb_grab_key(connection, 1, screen->root, XCB_MOD_MASK_4, XCB_GRAB_ANY, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+    for(Monitor monitor : monitors) {
+        xcb_change_window_attributes_checked(connection, monitor.xcb_screen->root, XCB_CW_EVENT_MASK, values);
+        xcb_ungrab_key(connection, XCB_GRAB_ANY, monitor.xcb_screen->root, XCB_MOD_MASK_ANY);
+        xcb_grab_key(connection, 1, monitor.xcb_screen->root, XCB_MOD_MASK_4, XCB_GRAB_ANY, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+    }
     xcb_flush(connection);
-
-    screen_width = screen->width_in_pixels;
-    screen_height = screen->height_in_pixels;
 }
 
 void disconnect() {
     xcb_disconnect(connection);
+}
+
+Extends monitorGetExtends(int monitor_id) {
+    if(monitor_id >= monitors.size()) throw std::runtime_error("Monitor does not exist");
+    xcb_get_geometry_reply_t* reply = xcb_get_geometry_reply(connection, xcb_get_geometry(connection, monitors[monitor_id].xcb_screen->root), NULL);
+    return {
+        reply->x,
+        reply->y,
+        reply->width,
+        reply->height
+    };
 }
 
 void clientKill(unsigned int client) {
@@ -157,7 +214,7 @@ void clientKill(unsigned int client) {
 void clientSpawn(std::string command) {
     if (fork() == 0) {
         if (connection != NULL) {
-            close(screen->root);
+            for(Monitor monitor : monitors) close(monitor.xcb_screen->root);
         }
         setsid();
         if (fork() != 0) {
@@ -213,68 +270,73 @@ void clientUnMap(unsigned int client) {
 
 //TITLEBAR
 
-static xcb_drawable_t titlebar;
-static xcb_pixmap_t pixmap;
-static xcb_gcontext_t graphics_context;
-static XftFont* font;
-static XftDraw* draw;
-static Visual* visual;
-static Colormap colormap;
-
-static unsigned titlebar_height;
-static std::unordered_map<std::string, XftColor> colors;
+static Titlebar* currentTitlebar;
+static bool drawing = false;
 
 XftColor* getXftColor(std::string color) {
-    if(colors.find(color) != colors.end()) return &colors[color];
+    if(currentTitlebar->colors.find(color) != currentTitlebar->colors.end()) return &(currentTitlebar->colors[color]);
     XftColor xftColor;
-    XftColorAllocName(xDisplay, visual, colormap, color.c_str(), &xftColor);
-    colors[color] = xftColor;
-    return &colors[color];
+    XftColorAllocName(xDisplay, currentTitlebar->visual, currentTitlebar->colormap, color.c_str(), &xftColor);
+    currentTitlebar->colors[color] = xftColor;
+    return &(currentTitlebar->colors[color]);
 }
 
-void titlebarInit(unsigned height, double font_size) {
-    titlebar_height = height;
+void titlebarInit(unsigned height, double font_size, int monitor_id) {
+    if(monitor_id >= monitors.size()) throw std::runtime_error("Monitor does not exist");
+    currentTitlebar = &(monitors[monitor_id].titlebar);
 
-    titlebar = xcb_generate_id (connection);
-    uint32_t values[2] = {screen->white_pixel, XCB_EVENT_MASK_EXPOSURE};
+    currentTitlebar->titlebar_height = height;
+
+    currentTitlebar->drawable = xcb_generate_id (connection);
+    uint32_t values[2] = {monitors[monitor_id].xcb_screen->white_pixel, XCB_EVENT_MASK_EXPOSURE};
     uint32_t mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
-    xcb_create_window (connection, XCB_COPY_FROM_PARENT, titlebar, screen->root, 0, 0, screen_width, titlebar_height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual, mask, values );
-    xcb_map_window (connection, titlebar);
+    xcb_create_window (connection, XCB_COPY_FROM_PARENT, currentTitlebar->drawable, monitors[monitor_id].xcb_screen->root, 0, 0, monitors[monitor_id].xcb_screen->width_in_pixels, currentTitlebar->titlebar_height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, monitors[monitor_id].xcb_screen->root_visual, mask, values );
+    xcb_map_window (connection, currentTitlebar->drawable);
 
-    uint screen_nmbr = DefaultScreen(xDisplay);
-    visual = DefaultVisual(xDisplay, screen_nmbr);
-    colormap = ScreenOfDisplay(xDisplay, screen_nmbr)->cmap;
+    currentTitlebar->visual = DefaultVisual(xDisplay, monitor_id);
+    currentTitlebar->colormap = ScreenOfDisplay(xDisplay, monitor_id)->cmap;
 
-    font = XftFontOpen(xDisplay, screen_nmbr, XFT_PIXEL_SIZE, XftTypeDouble, font_size, NULL);
-    if(!font) throw std::runtime_error("No fitting font found");
+    currentTitlebar->font = XftFontOpen(xDisplay, monitor_id, XFT_PIXEL_SIZE, XftTypeDouble, font_size, NULL);
+    if(!currentTitlebar->font) throw std::runtime_error("No fitting font found");
 
-    graphics_context = xcb_generate_id (connection);
+    currentTitlebar->graphics_context = xcb_generate_id (connection);
     uint32_t mask_gc       = XCB_GC_FOREGROUND | XCB_GC_GRAPHICS_EXPOSURES;
-    uint32_t values_gc[2]  = {screen->black_pixel, 0};
-    xcb_create_gc (connection, graphics_context, screen->root, mask_gc, values_gc);
+    uint32_t values_gc[2]  = {monitors[monitor_id].xcb_screen->black_pixel, 0};
+    xcb_create_gc (connection, currentTitlebar->graphics_context, monitors[monitor_id].xcb_screen->root, mask_gc, values_gc);
 
-    pixmap = xcb_generate_id(connection);
-    xcb_create_pixmap(connection, screen->root_depth, pixmap, titlebar, screen_width, titlebar_height);
+    currentTitlebar->pixmap = xcb_generate_id(connection);
+    xcb_create_pixmap(connection, monitors[monitor_id].xcb_screen->root_depth, currentTitlebar->pixmap, currentTitlebar->drawable, monitors[monitor_id].xcb_screen->width_in_pixels, currentTitlebar->titlebar_height);
 
     xcb_flush(connection);
 }
 
-void titlebarDrawStart() {
-    draw = XftDrawCreate(xDisplay, pixmap, visual, colormap);
+static unsigned currentWidth;
+
+void titlebarDrawStart(int monitor_id) {
+    if(drawing) throw std::runtime_error("Allready drawing a titlebar");
+    if(monitor_id >= monitors.size()) throw std::runtime_error("Monitor does not exist");
+    currentTitlebar = &(monitors[monitor_id].titlebar);
+    drawing = true;
+    currentTitlebar->draw = XftDrawCreate(xDisplay, currentTitlebar->pixmap, currentTitlebar->visual, currentTitlebar->colormap);
+    currentWidth = monitors[monitor_id].xcb_screen->width_in_pixels;
 }
 
 void titlebarDrawRectangle(int x, int y, int width, int height, std::string color) {
-    XftDrawRect(draw, getXftColor(color), x, y, width, height);
+    if(!drawing) throw std::runtime_error("Not currently drawing a titlebar");
+    XftDrawRect(currentTitlebar->draw, getXftColor(color), x, y, width, height);
 }
 
 void titlebarDrawText(int x, int y, int width, int height, std::string text, std::string color) {
+    if(!drawing) throw std::runtime_error("Not currently drawing a titlebar");
     XGlyphInfo extends;
-    XftTextExtentsUtf8(xDisplay, font, (unsigned char*) text.c_str(), text.length(), &extends);
-    XftDrawString8(draw, getXftColor(color), font, x+(width-(int)extends.width)/2, y-(height-(int)extends.height)/2, (unsigned char*) text.c_str(), text.length() );
+    XftTextExtentsUtf8(xDisplay, currentTitlebar->font, (unsigned char*) text.c_str(), text.length(), &extends);
+    XftDrawString8(currentTitlebar->draw, getXftColor(color), currentTitlebar->font, x+(width-(int)extends.width)/2, y-(height-(int)extends.height)/2, (unsigned char*) text.c_str(), text.length() );
 }
 
 void titlebarDrawFinish() {
-    xcb_copy_area(connection, pixmap, titlebar, graphics_context, 0, 0, 0, 0, screen->width_in_pixels, titlebar_height);
-    XftDrawDestroy(draw);
+    if(!drawing) throw std::runtime_error("Not currently drawing a titlebar");
+    xcb_copy_area(connection, currentTitlebar->pixmap, currentTitlebar->drawable, currentTitlebar->graphics_context, 0, 0, 0, 0, currentWidth, currentTitlebar->titlebar_height);
+    XftDrawDestroy(currentTitlebar->draw);
     xcb_flush(connection);
+    drawing = false;
 }

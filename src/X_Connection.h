@@ -11,12 +11,20 @@ enum ModMask {
     WIN   = 64
 };
 
-extern int screen_width;
-extern int screen_height;
-
 void connect();
 void disconnect();
 void eventListen();
+
+extern int MONITOR_AMOUNT;
+
+struct Extends {
+    int x;
+    int y;
+    int width;
+    int height;
+};
+
+Extends monitorGetExtends(int monitor_id);
 
 void clientSpawn(std::string command);
 void clientSetBorderWidth(unsigned client, unsigned pixels);
@@ -38,8 +46,8 @@ void setTitleChangeCallback(ClientCallback callback);
 void addKeyPressCallback(short modMask, short key, ClientCallback clientCallback);
 
 
-void titlebarInit(unsigned height, double FontSize);
-void titlebarDrawStart();
+void titlebarInit(unsigned height, double font_size, int monitor_id);
+void titlebarDrawStart(int monitor_id);
 void titlebarDrawRectangle(int x, int y, int width, int height, std::string color);
 void titlebarDrawText(int x, int y, int width, int height, std::string text, std::string color);
 void titlebarDrawFinish();

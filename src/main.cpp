@@ -3,9 +3,11 @@
 #include <iostream>
 
 void mapRequestCallback(unsigned client) {
+    Extends ext = monitorGetExtends(0);
+
     clientSetBorderWidth(client, 2);
     clientSetBorderColor(client, "#D8F032");
-    clientSetDimensions(client, 0, 30, screen_width-4, screen_height-4-30);
+    clientSetDimensions(client, 0, 30, ext.width-4, ext.height-4-30);
     clientMap(client);
 }
 
@@ -16,6 +18,12 @@ void goofyBhhCallback(unsigned client) {
     std::cout << "goofy bhh: " << client << std::endl;
 }
 
+bool running;
+
+void quitCallback(unsigned client) {
+    running = false;
+}
+
 
 void exposeCallback() {
     std::cout << "AHHHHH" << std::endl;
@@ -23,7 +31,7 @@ void exposeCallback() {
     //titlebarDrawRectangle("#D80032", 0, 0, screen_width, 30);
     //titlebarDrawText("#FFFFFF", 0, 0, "leckmich");
     //titlebarDrawFinalize();
-    titlebarDrawStart();
+    titlebarDrawStart(0);
     //drawRect(0, 0, screen_width, 30);
     //drawText(0, 0, screen_width, 30, "LECK MICH");
     titlebarDrawFinish();
@@ -34,19 +42,23 @@ int main() {
     setMapRequestCallback(mapRequestCallback);
     addKeyPressCallback(WIN | SHIFT, 'a', goofyAhhCallback);
     addKeyPressCallback(WIN | ALT, 'b', goofyBhhCallback);
+    addKeyPressCallback(WIN | SHIFT, 'q', quitCallback);
 
-    titlebarInit(30, 15);
-
-    titlebarDrawStart();
-    titlebarDrawRectangle(0, 0, screen_width, 30, "#AA55FF");
-    titlebarDrawText(0, 30, screen_width, 30, "LECK MICH", "#000000");
-    titlebarDrawFinish();
+    for(int i = 0; i < MONITOR_AMOUNT; i++) {
+        titlebarInit(30, 15, i);
+        Extends ext = monitorGetExtends(i);
+        titlebarDrawStart(i);
+        titlebarDrawRectangle(0, 0, ext.width, 30, "#AA55FF");
+	std::string str = "aahh " + std::to_string(MONITOR_AMOUNT) + " aaahadsdas";
+        titlebarDrawText(0, 30, ext.width, 30, str, "#000000");
+        titlebarDrawFinish();
+    }
 
     //titlebarInit(30, "Open Sans");
-    setExposeCallback(exposeCallback);
+    //setExposeCallback(exposeCallback);
 
     //clientSpawn("alacritty");
 
-
-    while(true) eventListen();
+    running = true;
+    while(running) eventListen();
 }
