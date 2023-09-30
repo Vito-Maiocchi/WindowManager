@@ -5,17 +5,11 @@
 #define KEY_ESC 0xff1b
 
 enum ModMask {
-    SHIFT = 1,
-    ALT   = 8,
-    CTRL  = 4,
-    WIN   = 64
+    MOD_SHIFT = 1,
+    MOD_ALT   = 8,
+    MOD_CTRL  = 4,
+    MOD_WIN   = 64
 };
-
-void connect();
-void disconnect();
-void eventListen();
-
-extern int MONITOR_AMOUNT;
 
 struct Extends {
     int x;
@@ -24,7 +18,12 @@ struct Extends {
     int height;
 };
 
-Extends monitorGetExtends(int monitor_id);
+void connect();
+void disconnect();
+void eventListen();
+
+extern int MONITOR_AMOUNT;
+Extends monitorGetExtends(unsigned monitor_id);
 
 void clientSpawn(std::string command);
 void clientSetBorderWidth(unsigned client, unsigned pixels);
@@ -36,18 +35,29 @@ void clientKill(unsigned int client);
 void clientInputFocus(unsigned int client);
 std::string clientGetTitle(unsigned client);
 
-
-typedef void (*ClientCallback)(unsigned);
-typedef void (*VoidCallback)();
-
-void setExposeCallback(VoidCallback callback);
-void setMapRequestCallback(ClientCallback callback);
-void setTitleChangeCallback(ClientCallback callback);
-void addKeyPressCallback(short modMask, short key, ClientCallback clientCallback);
-
-
-void titlebarInit(unsigned height, double font_size, int monitor_id);
+void titlebarInit(unsigned height, double font_size, unsigned monitor_id);
 void titlebarDrawStart(int monitor_id);
 void titlebarDrawRectangle(int x, int y, int width, int height, std::string color);
 void titlebarDrawText(int x, int y, int width, int height, std::string text, std::string color);
 void titlebarDrawFinish();
+
+typedef void (*ClientCallback)(unsigned);
+
+enum EventType {
+    MAP_REQEST,
+    TITLE_CHANGE
+};
+
+struct ShortCut {
+    unsigned ModMask;
+    unsigned KeyStroke;
+    ClientCallback callback;
+};
+
+struct EventCallback {
+    EventType eventType;
+    ClientCallback callback;
+};
+
+void registerShortCuts(ShortCut shortCuts[], unsigned size);
+void registerEventCallbacks(EventCallback eventCallbacks[], unsigned size);

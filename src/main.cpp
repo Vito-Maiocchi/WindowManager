@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#define SIZE(n) (sizeof(n) / sizeof(n[0]))
+
 void mapRequestCallback(unsigned client) {
     Extends ext = monitorGetExtends(0);
 
@@ -18,38 +20,48 @@ void goofyBhhCallback(unsigned client) {
     std::cout << "goofy bhh: " << client << std::endl;
 }
 
-bool running;
+void spawnTerminal(unsigned client) {
+    clientSpawn("alacritty");
+}
 
+void spawnRofi(unsigned client) {
+    clientSpawn("rofi -show drun");
+}
+
+void closeClient(unsigned client) {
+    clientKill(client);
+}
+
+bool running;
 void quitCallback(unsigned client) {
     running = false;
 }
 
+EventCallback eventCallbacks[] = {
+    {MAP_REQEST, mapRequestCallback}
+};
 
-void exposeCallback() {
-    std::cout << "AHHHHH" << std::endl;
-    //titlebarDrawStart();
-    //titlebarDrawRectangle("#D80032", 0, 0, screen_width, 30);
-    //titlebarDrawText("#FFFFFF", 0, 0, "leckmich");
-    //titlebarDrawFinalize();
-    titlebarDrawStart(0);
-    //drawRect(0, 0, screen_width, 30);
-    //drawText(0, 0, screen_width, 30, "LECK MICH");
-    titlebarDrawFinish();
-}
+ShortCut shortCuts[] = {
+    {MOD_WIN | MOD_SHIFT,       'a',        goofyAhhCallback},
+    {MOD_WIN | MOD_ALT,         'b',        goofyBhhCallback},
+    {MOD_WIN | MOD_SHIFT,       'q',        quitCallback},
+    {MOD_WIN,                   KEY_SPACE,  spawnRofi},
+    {MOD_WIN,                   KEY_ENTER,  spawnTerminal},
+    {MOD_WIN,                   'q',        closeClient}
+};
 
 int main() {
     connect();
-    setMapRequestCallback(mapRequestCallback);
-    addKeyPressCallback(WIN | SHIFT, 'a', goofyAhhCallback);
-    addKeyPressCallback(WIN | ALT, 'b', goofyBhhCallback);
-    addKeyPressCallback(WIN | SHIFT, 'q', quitCallback);
+
+    registerEventCallbacks(eventCallbacks, SIZE(eventCallbacks));
+    registerShortCuts(shortCuts, SIZE(shortCuts));
 
     for(int i = 0; i < MONITOR_AMOUNT; i++) {
         titlebarInit(30, 15, i);
         Extends ext = monitorGetExtends(i);
         titlebarDrawStart(i);
         titlebarDrawRectangle(0, 0, ext.width, 30, "#AA55FF");
-	std::string str = "aahh " + std::to_string(MONITOR_AMOUNT) + " aaahadsdas";
+	    std::string str = "MONITOR: " + std::to_string(i+1) + " OF " + std::to_string(MONITOR_AMOUNT) + " aaahadsdas";
         titlebarDrawText(0, 30, ext.width, 30, str, "#000000");
         titlebarDrawFinish();
     }
@@ -57,7 +69,7 @@ int main() {
     //titlebarInit(30, "Open Sans");
     //setExposeCallback(exposeCallback);
 
-    //clientSpawn("alacritty");
+    clientSpawn("alacritty");
 
     running = true;
     while(running) eventListen();
