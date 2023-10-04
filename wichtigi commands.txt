@@ -1,1 +1,0 @@
-Xephyr +extension RANDR -screen 1200x700 -screen 1200x700 :1

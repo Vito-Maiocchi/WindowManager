@@ -1,0 +1,1 @@
+Xephyr -screen 1000x1000 -screen 1000x1000 :1

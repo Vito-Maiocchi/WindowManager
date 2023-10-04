@@ -31,9 +31,11 @@ void clientSetBorderColor(unsigned int client, std::string color);
 void clientMap(unsigned int client);
 void clientUnMap(unsigned int client);
 void clientSetDimensions(unsigned int client, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+void clientSetDimensions(unsigned client, unsigned x, unsigned y, unsigned width, unsigned height, unsigned border_width);
 void clientKill(unsigned int client);
 void clientInputFocus(unsigned int client);
 std::string clientGetTitle(unsigned client);
+bool clientIsValid(unsigned client);
 
 void titlebarInit(unsigned height, double font_size, unsigned monitor_id);
 void titlebarDrawStart(int monitor_id);

@@ -18,6 +18,8 @@
 #include "X_Connection.h"
 
 #define SCREEN(n) (screens[monitors[n].screen])
+#define TITLEBAR(n) (monitors[n].titlebar)
+#define MON_INFO(n) (monitors[n].monitor_info)
 
 static Display* xDisplay;
 static xcb_connection_t* connection;
@@ -49,9 +51,15 @@ struct xScreen {
 static std::vector<xMonitor> monitors;
 static std::vector<xScreen> screens;
 
+bool clientIsValid(unsigned client) {
+    if(client == 0) return false;
+    for(xScreen screen : screens) if(screen.xcb_screen->root == client) return false;
+    for(xMonitor monitor : monitors) if(monitor.titlebar.drawable == client) return false;
+    return true;
+}
+
 void checkIfValid(unsigned client) {
-    if (client == 0) throw std::runtime_error("Invalid Client");
-    for(xScreen screen : screens) if(screen.xcb_screen->root == client) throw std::runtime_error("Invalid Client");
+    if (!clientIsValid(client)) throw std::runtime_error("Invalid Client");
 }
 
 std::string getTitle(unsigned client) {
@@ -95,7 +103,7 @@ void registerEventCallbacks(EventCallback eventCallbacks[], unsigned size) {
 
 void eventListen() {
     xcb_flush(connection);
-
+    
     xcb_generic_event_t* e = xcb_wait_for_event(connection);
     int type = e->response_type;
     switch (type){
@@ -227,6 +235,7 @@ void clientSpawn(std::string command) {
         if (fork() != 0) {
             _exit(0);
         }
+        command += " &>/dev/null"; //disable the std output
         system(command.c_str());
         _exit(0);
     }
@@ -242,6 +251,10 @@ void clientSetDimensions(unsigned int client, unsigned int x, unsigned int y, un
     checkIfValid(client);
     uint32_t vals[4] = {x, y, width, height};
     xcb_configure_window(connection, client, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, vals);
+}
+
+void clientSetDimensions(unsigned client, unsigned x, unsigned y, unsigned width, unsigned height, unsigned border_width) {
+    clientSetDimensions(client, x, y, width - 2*border_width, height - 2*border_width);
 }
 
 void clientSetBorderWidth(unsigned client, unsigned pixels) {
@@ -276,9 +289,6 @@ void clientUnMap(unsigned int client) {
 /*
         TITLEBAR
 */
-
-#define TITLEBAR(n) (monitors[n].titlebar)
-#define MON_INFO(n) (monitors[n].monitor_info)
 
 void titlebarInit(unsigned height, double font_size, unsigned monitor_id) {
     if(monitor_id >= monitors.size()) throw std::runtime_error("Monitor does not exist");

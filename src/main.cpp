@@ -1,4 +1,5 @@
-#include "X_Connection.h"
+//#include "X_Connection.h"
+#include "WindowManager.h"
 
 #include <iostream>
 
@@ -9,7 +10,8 @@ void mapRequestCallback(unsigned client) {
 
     clientSetBorderWidth(client, 2);
     clientSetBorderColor(client, "#D8F032");
-    clientSetDimensions(client, 0, 30, ext.width-4, ext.height-4-30);
+    //clientSetDimensions(client, 0, 30, ext.width-4, ext.height-4-30);
+    addClient(client);
     clientMap(client);
 }
 
@@ -29,7 +31,9 @@ void spawnRofi(unsigned client) {
 }
 
 void closeClient(unsigned client) {
+    if(!clientIsValid(client)) return;
     clientKill(client);
+    removeClient(client); //es tuet au root remove
 }
 
 bool running;
@@ -47,7 +51,8 @@ ShortCut shortCuts[] = {
     {MOD_WIN | MOD_SHIFT,       'q',        quitCallback},
     {MOD_WIN,                   KEY_SPACE,  spawnRofi},
     {MOD_WIN,                   KEY_ENTER,  spawnTerminal},
-    {MOD_WIN,                   'q',        closeClient}
+    {MOD_WIN,                   'q',        closeClient},
+    {MOD_WIN,                   'w',        toggle_expand}
 };
 
 int main() {
@@ -66,10 +71,12 @@ int main() {
         titlebarDrawFinish();
     }
 
+    Extends ext = monitorGetExtends(0);
+    WM_setup({ext.x, ext.y + 30, ext.width, ext.height - 30});
     //titlebarInit(30, "Open Sans");
     //setExposeCallback(exposeCallback);
 
-    clientSpawn("alacritty");
+    //clientSpawn("alacritty");
 
     running = true;
     while(running) eventListen();
