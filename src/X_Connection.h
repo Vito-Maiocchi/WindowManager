@@ -1,4 +1,7 @@
 #include <string>
+#include <functional>
+
+struct Extends;
 
 #define KEY_ENTER 0xff0d
 #define KEY_SPACE 0x0020
@@ -9,13 +12,6 @@ enum ModMask {
     MOD_ALT   = 8,
     MOD_CTRL  = 4,
     MOD_WIN   = 64
-};
-
-struct Extends {
-    int x;
-    int y;
-    int width;
-    int height;
 };
 
 void connect();
@@ -43,7 +39,8 @@ void titlebarDrawRectangle(int x, int y, int width, int height, std::string colo
 void titlebarDrawText(int x, int y, int width, int height, std::string text, std::string color);
 void titlebarDrawFinish();
 
-typedef void (*ClientCallback)(unsigned);
+//typedef void (*ClientCallback)(unsigned);
+typedef std::function<void(unsigned)> ClientCallback;
 
 enum EventType {
     MAP_REQEST,

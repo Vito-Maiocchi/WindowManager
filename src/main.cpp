@@ -1,7 +1,9 @@
-//#include "X_Connection.h"
+#include "X_Connection.h"
 #include "WindowManager.h"
+#include "Util.h"
 
 #include <iostream>
+#include <functional>
 
 #define SIZE(n) (sizeof(n) / sizeof(n[0]))
 
@@ -11,7 +13,7 @@ void mapRequestCallback(unsigned client) {
     clientSetBorderWidth(client, 2);
     clientSetBorderColor(client, "#D8F032");
     //clientSetDimensions(client, 0, 30, ext.width-4, ext.height-4-30);
-    addClient(client);
+    wmAddClient(client);
     clientMap(client);
 }
 
@@ -33,7 +35,7 @@ void spawnRofi(unsigned client) {
 void closeClient(unsigned client) {
     if(!clientIsValid(client)) return;
     clientKill(client);
-    removeClient(client); //es tuet au root remove
+    wmRemoveClient(client);
 }
 
 bool running;
@@ -45,21 +47,29 @@ EventCallback eventCallbacks[] = {
     {MAP_REQEST, mapRequestCallback}
 };
 
-ShortCut shortCuts[] = {
+std::vector<ShortCut> shortCuts = {
     {MOD_WIN | MOD_SHIFT,       'a',        goofyAhhCallback},
     {MOD_WIN | MOD_ALT,         'b',        goofyBhhCallback},
     {MOD_WIN | MOD_SHIFT,       'q',        quitCallback},
     {MOD_WIN,                   KEY_SPACE,  spawnRofi},
     {MOD_WIN,                   KEY_ENTER,  spawnTerminal},
     {MOD_WIN,                   'q',        closeClient},
-    {MOD_WIN,                   'w',        toggle_expand}
+    {MOD_WIN,                   'w',        wmToggleExpand}
 };
+
+ClientCallback tagCallbacks[9];
 
 int main() {
     connect();
 
+    for(unsigned i = 0; i < 9; i++) {
+        tagCallbacks[i] = [i](unsigned client) { wmSetTag(i); };
+        ShortCut sc = { MOD_WIN, (char) i+49U, tagCallbacks[i] };
+        shortCuts.push_back(sc);
+    }
+
     registerEventCallbacks(eventCallbacks, SIZE(eventCallbacks));
-    registerShortCuts(shortCuts, SIZE(shortCuts));
+    registerShortCuts(shortCuts.data(), shortCuts.size());
 
     for(int i = 0; i < MONITOR_AMOUNT; i++) {
         titlebarInit(30, 15, i);
@@ -71,10 +81,11 @@ int main() {
         titlebarDrawFinish();
     }
 
-    Extends ext = monitorGetExtends(0);
-    WM_setup({ext.x, ext.y + 30, ext.width, ext.height - 30});
-    //titlebarInit(30, "Open Sans");
-    //setExposeCallback(exposeCallback);
+
+    //WM_setup(extendsModify(monitorGetExtends(0), -30, UP));
+    std::vector<Extends> wmExtends(MONITOR_AMOUNT);
+    for(unsigned i = 0; i < MONITOR_AMOUNT; i++) wmExtends[i] = extendsModify(monitorGetExtends(i), -30, UP);
+    wmSetup(wmExtends, 2);
 
     //clientSpawn("alacritty");
 

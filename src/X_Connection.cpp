@@ -16,6 +16,7 @@
 #include <array>
 
 #include "X_Connection.h"
+#include "Util.h"
 
 #define SCREEN(n) (screens[monitors[n].screen])
 #define TITLEBAR(n) (monitors[n].titlebar)
@@ -188,10 +189,10 @@ void connect() {
 
     MONITOR_AMOUNT = monitors.size();   
 
-    std::cout << "SCREEN AMOUNT " << screens.size() << std::endl;
-    std::cout << "MONITOR AMOUNT " << monitors.size() << std::endl;
+    //std::cout << "SCREEN AMOUNT " << screens.size() << std::endl;
+    //std::cout << "MONITOR AMOUNT " << monitors.size() << std::endl;
     for(xMonitor m : monitors) {
-        std::cout << "x: " << m.monitor_info->x << "; y: " << m.monitor_info->y << "; width: " << m.monitor_info->width << "; height: " << m.monitor_info->height << std::endl;
+        //std::cout << "x: " << m.monitor_info->x << "; y: " << m.monitor_info->y << "; width: " << m.monitor_info->width << "; height: " << m.monitor_info->height << std::endl;
     } 
 
     uint32_t values[1];

@@ -1,11 +1,13 @@
 #include "X_Connection.h"
+#include "Util.h"
 
 #include <vector>
 #include <stdexcept>
 #include <algorithm>
 #include <iostream>
+#include <array>
 
-const unsigned border_width = 2;
+unsigned border_width = 2;
 
 #define INVALID -1
 
@@ -18,7 +20,7 @@ void mapVector(Extends ext, std::vector<unsigned> &clients) {
 
 struct MainWindowLayout {
     Extends* ext;
-    unsigned main = -1;
+    unsigned main = INVALID;
     std::vector<unsigned> left;
     std::vector<unsigned> right;
     unsigned active = INVALID;
@@ -27,7 +29,7 @@ struct MainWindowLayout {
 
 void remap(MainWindowLayout &layout) {
     if(layout.left.size() == 0 && layout.right.size() == 0) {
-        if(layout.main == -1) return;
+        if(layout.main == INVALID) return;
         clientSetDimensions(layout.main, layout.ext->x, layout.ext->y, layout.ext->width, layout.ext->height, border_width);
         return;
     }
@@ -50,7 +52,7 @@ void remap(MainWindowLayout &layout) {
 }
 
 void addClient(MainWindowLayout &layout, unsigned client) {
-    if(layout.main == -1) layout.main = client;
+    if(layout.main == INVALID) layout.main = client;
     else if(layout.right.size() < layout.left.size()) layout.right.push_back(client);
     else layout.left.push_back(client);
     remap(layout);
@@ -90,7 +92,15 @@ void umapAll(MainWindowLayout &layout, unsigned client) {
     for(unsigned c : layout.right) if(c != client) clientUnMap(c);
 }
 
+void umapAll(MainWindowLayout &layout) {
+    umapAll(layout, INVALID);
+}
+
 void mapAll(MainWindowLayout &layout) {
+    if(layout.expanded != INVALID) {
+        clientMap(layout.expanded);
+        return;
+    }
     if(layout.main != INVALID) clientMap(layout.main);
     for(unsigned c : layout.left) clientMap(c);
     for(unsigned c : layout.right) clientMap(c);
@@ -102,6 +112,7 @@ void expand(MainWindowLayout &layout, unsigned client) {
 }
 
 void uexpand(MainWindowLayout &layout) {
+    layout.expanded = INVALID;
     mapAll(layout);
     remap(layout);
 }
@@ -117,29 +128,37 @@ struct LayoutMonitor {
     unsigned current;
 };
 
-LayoutMonitor layoutMonitor;
+std::vector<LayoutMonitor> layoutMonitors;
+static unsigned currentMonitor;
 
-void WM_setup(Extends extends) {
-    layoutMonitor.ext = extends;
-    for(unsigned i = 0; i < 9; i++) layoutMonitor.layouts[i].ext = &layoutMonitor.ext;
-    layoutMonitor.current = 0;
+void wmSetup(std::vector<Extends> exts, unsigned borderWidth) {
+    border_width = borderWidth;
+    layoutMonitors.resize(exts.size());
+    for(unsigned i = 0; i < exts.size(); i++) {
+        layoutMonitors[i].ext = exts[i];
+        for(unsigned j = 0; j < 9; j++) layoutMonitors[i].layouts[j].ext = &layoutMonitors[i].ext;
+        layoutMonitors[i].current = 0;
+    }
+    currentMonitor = 0;
 }
 
-#define LAYOUT (layoutMonitor.layouts[layoutMonitor.current])
+#define LAYOUT_MONITOR layoutMonitors[currentMonitor]
+#define LAYOUT LAYOUT_MONITOR.layouts[LAYOUT_MONITOR.current]
 
-void addClient(unsigned client) {
-    //std::cout << "add begin: LAYOUT -  main: " << layout.main << ";  left size: " << layout.left.size() << "  right size: "  << layout.left.size() << std::endl;
+void wmAddClient(unsigned client) {
     addClient(LAYOUT, client);
-    //std::cout << "add end:   LAYOUT -  main: " << layout.main << ";  left size: " << layout.left.size() << "  right size: "  << layout.left.size() << std::endl;
 }
 
-void removeClient(unsigned client) {
-    //std::cout << "remove begin:  LAYOUT -  main: " << layout.main << ";  left size: " << layout.left.size() << "  right size: "  << layout.left.size() << std::endl;
+void wmRemoveClient(unsigned client) {
+    if(client == LAYOUT.expanded) {
+        uexpand(LAYOUT);
+        LAYOUT.expanded = INVALID;
+    }
     removeClient(LAYOUT, client);
-    //std::cout << "remove end:    LAYOUT -  main: " << layout.main << ";  left size: " << layout.left.size() << "  right size: "  << layout.left.size() << std::endl;
 }
 
-void toggle_expand(unsigned client) {
+void wmToggleExpand(unsigned client) {
+    if(!clientIsValid(client)) return;
     if(LAYOUT.expanded == INVALID) {
         expand(LAYOUT, client);
         LAYOUT.expanded = client;
@@ -147,10 +166,22 @@ void toggle_expand(unsigned client) {
     }
     if(LAYOUT.expanded == client) {
         uexpand(LAYOUT);
-        LAYOUT.expanded = INVALID;
         return;
     }
     uexpand(LAYOUT);
     expand(LAYOUT, client);
     LAYOUT.expanded = client;
 }
+
+void wmSetTag(unsigned tag) {
+    if(tag == LAYOUT_MONITOR.current) return;
+    unsigned old = LAYOUT_MONITOR.current;
+    LAYOUT_MONITOR.current = tag;
+    mapAll(LAYOUT_MONITOR.layouts[tag]);
+    umapAll(LAYOUT_MONITOR.layouts[old]);
+}
+
+/*
+    PROBLEM:
+    executbale gaht selebr zue
+*/
