@@ -34,7 +34,14 @@ void spawnRofi(unsigned client) {
 
 void closeClient(unsigned client) {
     if(!clientIsValid(client)) return;
+    //std::cout << "CLIENT KILL: " << client << std::endl;
     clientKill(client);
+}
+
+void clientDestroy(unsigned client) {
+    //std::cout << "DESTORY: " << client << std::endl;
+    if(!clientIsValid(client)) return;
+    //std::cout << "DESTORY-end" << std::endl;
     wmRemoveClient(client);
 }
 
@@ -44,7 +51,8 @@ void quitCallback(unsigned client) {
 }
 
 EventCallback eventCallbacks[] = {
-    {MAP_REQEST, mapRequestCallback}
+    {MAP_REQEST, mapRequestCallback},
+    {DESTORY_NOTIFY, clientDestroy}
 };
 
 std::vector<ShortCut> shortCuts = {

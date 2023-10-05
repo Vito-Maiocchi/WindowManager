@@ -138,9 +138,10 @@ void eventListen() {
         case XCB_LEAVE_NOTIFY:
             //handleLeaveNotify(((xcb_leave_notify_event_t*)e)->event);
         break;
-        case XCB_DESTROY_NOTIFY:
-            //handleDestroyNotify(((xcb_destroy_notify_event_t*)e)->event);
-        break;
+        case XCB_DESTROY_NOTIFY: {
+            unsigned client = ((xcb_destroy_notify_event_t*)e)->window;
+            if(eventCallbackMap.find(DESTORY_NOTIFY) != eventCallbackMap.end()) eventCallbackMap[DESTORY_NOTIFY](client);
+        } break;
         case XCB_PROPERTY_NOTIFY: {
             unsigned client = ((xcb_property_notify_event_t*)e)->window;
             std::string title = getTitle(client);

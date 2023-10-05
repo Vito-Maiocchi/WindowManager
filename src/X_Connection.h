@@ -44,7 +44,8 @@ typedef std::function<void(unsigned)> ClientCallback;
 
 enum EventType {
     MAP_REQEST,
-    TITLE_CHANGE
+    TITLE_CHANGE,
+    DESTORY_NOTIFY
 };
 
 struct ShortCut {

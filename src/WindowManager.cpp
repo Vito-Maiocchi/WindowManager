@@ -83,7 +83,7 @@ void removeClient(MainWindowLayout &layout, unsigned client) {
         remap(layout);
         return;
     }
-    throw std::runtime_error("Client can not be removed: NOT FOUND");
+    //throw std::runtime_error("Client can not be removed: NOT FOUND");
 }
 
 void umapAll(MainWindowLayout &layout, unsigned client) {
@@ -154,7 +154,7 @@ void wmRemoveClient(unsigned client) {
         uexpand(LAYOUT);
         LAYOUT.expanded = INVALID;
     }
-    removeClient(LAYOUT, client);
+    removeClient(LAYOUT, client); //da au remove wenns nöd uf em current tag/monitor isch
 }
 
 void wmToggleExpand(unsigned client) {
@@ -181,7 +181,3 @@ void wmSetTag(unsigned tag) {
     umapAll(LAYOUT_MONITOR.layouts[old]);
 }
 
-/*
-    PROBLEM:
-    executbale gaht selebr zue
-*/
