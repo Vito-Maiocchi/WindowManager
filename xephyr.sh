@@ -1,1 +1,1 @@
-Xephyr -screen 1000x1000 -screen 1000x1000 :1
+Xephyr -screen 1600x900 -screen 1600x900 :1

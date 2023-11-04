@@ -13,6 +13,7 @@ void mapRequestCallback(unsigned client) {
     clientSetBorderWidth(client, 2);
     clientSetBorderColor(client, "#D8F032");
     //clientSetDimensions(client, 0, 30, ext.width-4, ext.height-4-30);
+
     wmAddClient(client);
     clientMap(client);
 }
