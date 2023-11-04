@@ -1,3 +1,8 @@
+#ifndef VITO_WM_WINDOWMANAGER_H
+#define VITO_WM_WINDOWMANAGER_H
+
+#include <vector>
+
 struct Extends;
 
 /*
@@ -12,3 +17,5 @@ void wmAddClient(unsigned client);
 void wmRemoveClient(unsigned client);
 void wmToggleExpand(unsigned client);
 void wmSetTag(unsigned tag);
+
+#endif

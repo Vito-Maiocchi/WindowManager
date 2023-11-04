@@ -1,3 +1,6 @@
+#ifndef VITO_WM_XCONNECTION_H
+#define VITO_WM_XCONNECTION_H
+
 #include <string>
 #include <functional>
 
@@ -61,3 +64,5 @@ struct EventCallback {
 
 void registerShortCuts(ShortCut shortCuts[], unsigned size);
 void registerEventCallbacks(EventCallback eventCallbacks[], unsigned size);
+
+#endif
